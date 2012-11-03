@@ -77,7 +77,7 @@ enum modes
 	SPI1    = 2,
 	SPI2    = 3,
 	SPI3    = 4,
-	I2C     = 5,
+	_I2C     = 5,
 	GPIO    = 6,
 	BITBANG = 7,
 	MCU8	= 8,
@@ -233,7 +233,7 @@ struct mpsse_gpio_t
 struct mpsse_t
 {
 	struct mpsse_spi_t SPI;
-	struct mpsse_i2c_t I2C;
+	struct mpsse_i2c_t _I2C;
 	struct mpsse_mcu_t MCU;
 	struct mpsse_gpio_t GPIO;
 	struct mpsse_gpio_t BITBANG;
@@ -248,7 +248,7 @@ struct mpsse_t
 	char *(*GetDescription)(struct mpsse_context *mpsse);
 	int (*SetLoopback)(struct mpsse_context *mpsse, int enable);
 	int (*Version)(void);
-} MPSSE;
+};
 
 struct mpsse_context *mpsse_mcu_open(enum modes mode);
 struct mpsse_context *mpsse_i2c_open(int freq);

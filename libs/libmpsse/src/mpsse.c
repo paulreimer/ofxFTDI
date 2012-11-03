@@ -29,6 +29,7 @@ struct vid_pid supported_devices[] = {
 			
 			{ 0, 0, NULL }
 };
+static struct mpsse_t MPSSE;
 
 /* Called on library load */
 static void _mpsse_ldInit(void) __attribute__((__constructor__));
@@ -58,14 +59,14 @@ static void _mpsse_ldInit(void)
 	MPSSE.GPIO.Close		= &mpsse_close;
 
 	MPSSE.BITBANG.Open		= &mpsse_bitbang_open;
-        MPSSE.BITBANG.PinHigh		= &mpsse_pin_high;
-        MPSSE.BITBANG.PinLow		= &mpsse_pin_low;
-        MPSSE.BITBANG.ReadPins		= &mpsse_read_pins;
-        MPSSE.BITBANG.PinState		= &mpsse_pin_state;
-        MPSSE.BITBANG.ClockUntilHigh	= &mpsse_clock_until_high;
-        MPSSE.BITBANG.ClockUntilLow	= &mpsse_clock_until_low;
-        MPSSE.BITBANG.ToggleClock	= &mpsse_toggle_clock;
-        MPSSE.BITBANG.ToggleClockX8	= &mpsse_toggle_clock_x8;
+  MPSSE.BITBANG.PinHigh		= &mpsse_pin_high;
+  MPSSE.BITBANG.PinLow		= &mpsse_pin_low;
+  MPSSE.BITBANG.ReadPins		= &mpsse_read_pins;
+  MPSSE.BITBANG.PinState		= &mpsse_pin_state;
+  MPSSE.BITBANG.ClockUntilHigh	= &mpsse_clock_until_high;
+  MPSSE.BITBANG.ClockUntilLow	= &mpsse_clock_until_low;
+  MPSSE.BITBANG.ToggleClock	= &mpsse_toggle_clock;
+  MPSSE.BITBANG.ToggleClockX8	= &mpsse_toggle_clock_x8;
 	MPSSE.BITBANG.Close		= &mpsse_close;
 
 	MPSSE.SPI.Open			= &mpsse_easy_open;
@@ -77,17 +78,17 @@ static void _mpsse_ldInit(void)
 	MPSSE.SPI.Stop			= &mpsse_stop;
 	MPSSE.SPI.Close			= &mpsse_close;
 
-	MPSSE.I2C.Open			= &mpsse_i2c_open;
-	MPSSE.I2C.Read			= &mpsse_read;
-	MPSSE.I2C.Write			= &mpsse_write;
-	MPSSE.I2C.Start			= &mpsse_start;
-	MPSSE.I2C.Stop			= &mpsse_stop;
-	MPSSE.I2C.Tristate		= &mpsse_tristate;
-	MPSSE.I2C.GetAck		= &mpsse_get_ack;
-	MPSSE.I2C.SetAck		= &mpsse_set_ack;
-	MPSSE.I2C.SendAcks		= &mpsse_send_acks;
-	MPSSE.I2C.SendNacks		= &mpsse_send_nacks;
-	MPSSE.I2C.Close			= &mpsse_close;
+	MPSSE._I2C.Open			= &mpsse_i2c_open;
+	MPSSE._I2C.Read			= &mpsse_read;
+	MPSSE._I2C.Write			= &mpsse_write;
+	MPSSE._I2C.Start			= &mpsse_start;
+	MPSSE._I2C.Stop			= &mpsse_stop;
+	MPSSE._I2C.Tristate		= &mpsse_tristate;
+	MPSSE._I2C.GetAck		= &mpsse_get_ack;
+	MPSSE._I2C.SetAck		= &mpsse_set_ack;
+	MPSSE._I2C.SendAcks		= &mpsse_send_acks;
+	MPSSE._I2C.SendNacks		= &mpsse_send_nacks;
+	MPSSE._I2C.Close			= &mpsse_close;
 	
 	MPSSE.MCU.Open			= &mpsse_mcu_open;
 	MPSSE.MCU.Read			= &mpsse_mcu_read;
@@ -120,7 +121,7 @@ struct mpsse_context *mpsse_mcu_open(enum modes mode)
  */
 struct mpsse_context *mpsse_i2c_open(int freq)
 {
-	return mpsse_easy_open(I2C, freq, MSB);
+	return mpsse_easy_open(_I2C, freq, MSB);
 }
 
 /*
@@ -225,7 +226,7 @@ struct mpsse_context *mpsse_open(int vid, int pid, enum modes mode, int freq, in
 				mpsse->status = STOPPED;
 
 				/* Set the appropriate transfer size for the requested protocol */
-				if(mpsse->mode == I2C)
+				if(mpsse->mode == _I2C)
 				{
 					mpsse->xsize = I2C_TRANSFER_SIZE;
 				}
@@ -400,7 +401,7 @@ int mpsse_set_mode(struct mpsse_context *mpsse, int endianess)
 				mpsse->txrx |= MPSSE_READ_NEG;
 				mpsse->txrx &= ~MPSSE_WRITE_NEG;
 				break;
-			case I2C:
+			case _I2C:
 				/* I2C propogates data on the falling clock edge and reads data on the falling (or rising) clock edge */
 				mpsse->tx |= MPSSE_WRITE_NEG;
 				mpsse->rx &= ~MPSSE_READ_NEG;
@@ -683,7 +684,7 @@ int mpsse_start(struct mpsse_context *mpsse)
 	if(is_valid_context(mpsse))
 	{
 
-		if(mpsse->mode == I2C && mpsse->status == STARTED)
+		if(mpsse->mode == _I2C && mpsse->status == STARTED)
 		{
 			/* Set the default pin states while the clock is low since this is an I2C repeated start condition */
 			status |= set_bits_low(mpsse, (mpsse->pidle & ~SK));
@@ -756,7 +757,7 @@ int mpsse_write(struct mpsse_context *mpsse, char *data, int size)
 				 * For I2C we need to send each byte individually so that we can 
 				 * read back each individual ACK bit, so set the transmit size to 1.
 				 */
-				if(mpsse->mode == I2C)
+				if(mpsse->mode == _I2C)
 				{
 					txsize = 1;
 				}
@@ -774,7 +775,7 @@ int mpsse_write(struct mpsse_context *mpsse, char *data, int size)
 					}
 				
 					/* Read in the ACK bit and store it in mpsse->rack */
-					if(mpsse->mode == I2C)
+					if(mpsse->mode == _I2C)
 					{
 						raw_read(mpsse, (unsigned char *) &mpsse->rack, 1);
 					}
@@ -1018,7 +1019,7 @@ int mpsse_stop(struct mpsse_context *mpsse)
 	if(is_valid_context(mpsse))
 	{
 		/* In I2C mode, we need to ensure that the data line goes low while the clock line is low to avoid sending an inadvertent start condition */
-		if(mpsse->mode == I2C)
+		if(mpsse->mode == _I2C)
 		{
 			retval |= set_bits_low(mpsse, (mpsse->pidle & ~DO & ~SK));
 		}

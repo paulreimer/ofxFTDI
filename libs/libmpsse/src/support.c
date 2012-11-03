@@ -83,7 +83,7 @@ unsigned char *build_block_buffer(struct mpsse_context *mpsse, uint8_t cmd, unsi
 	*buf_size = 0;
 
 	/* Data block size is 1 in I2C */
-	if(mpsse->mode == I2C)
+	if(mpsse->mode == _I2C)
 	{
 		xfer_size = 1;
 	}
@@ -102,7 +102,7 @@ unsigned char *build_block_buffer(struct mpsse_context *mpsse, uint8_t cmd, unsi
         total_size = size + (CMD_SIZE * num_blocks);
 
 	/* In I2C we have to add 3 additional commands per data block */
-	if(mpsse->mode == I2C)
+	if(mpsse->mode == _I2C)
 	{
 		total_size += (CMD_SIZE * 3 * num_blocks);
 	}
@@ -124,7 +124,7 @@ unsigned char *build_block_buffer(struct mpsse_context *mpsse, uint8_t cmd, unsi
 			rsize = dsize - 1;
 
 			/* For I2C we need to ensure that the clock pin is set low prior to clocking out data */
-			if(mpsse->mode == I2C)
+			if(mpsse->mode == _I2C)
 			{
 				buf[i++] = SET_BITS_LOW;
 				buf[i++] = mpsse->pstart & ~SK;
@@ -157,7 +157,7 @@ unsigned char *build_block_buffer(struct mpsse_context *mpsse, uint8_t cmd, unsi
 			}
 
 			/* In I2C mode we need to clock one ACK bit after each byte */
-			if(mpsse->mode == I2C)
+			if(mpsse->mode == _I2C)
 			{
 				/* If we are receiving data, then we need to clock out an ACK for each byte */
 				if(cmd == mpsse->rx)
