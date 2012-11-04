@@ -15,7 +15,6 @@ public:
   bool connect(enum modes mode=SPI0, int freq=ONE_MHZ, int endianess=MSB);
   void send(const std::vector<uint8_t>& data);
 
-private:
   struct mpsse_context *ftdi;
-  bool ftdiRunning;
+  bool connected;
 };

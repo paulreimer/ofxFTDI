@@ -4,13 +4,13 @@
 //--------------------------------------------------------------
 ofxMPSSE::ofxMPSSE()
 : ftdi(NULL)
-, ftdiRunning(false)
+, connected(false)
 {}
 
 //--------------------------------------------------------------
 ofxMPSSE::~ofxMPSSE()
 {
-  if (ftdiRunning)
+  if (connected)
     mpsse_close(ftdi);
 }
 
@@ -26,7 +26,7 @@ ofxMPSSE::connect(enum modes mode, int freq, int endianess)
     << "' initialized at "  << mpsse_get_clock(ftdi) << "Hz"
     << std::endl;
 
-    ftdiRunning = true;
+    connected = true;
   }
   else {
     std::cout
@@ -42,6 +42,6 @@ ofxMPSSE::connect(enum modes mode, int freq, int endianess)
 void
 ofxMPSSE::send(const std::vector<uint8_t>& data)
 {
-  if (ftdiRunning)
+  if (connected)
     mpsse_write(ftdi, (char*)data.data(), data.size());
 }
