@@ -6,7 +6,13 @@
  */
 
 #include <string.h>
+
+#if LIBFTDI1 == 1
+#include <libftdi1/ftdi.h>
+#else
 #include <ftdi.h>
+#endif
+
 #include "mpsse.h"
 #include "support.h"
 
@@ -40,10 +46,15 @@ int raw_read(struct mpsse_context *mpsse, unsigned char *buf, int size)
 			n += r;
 		}
 
-		/* Make sure the buffers are cleared after a read or subsequent reads may fail */
-		ftdi_usb_purge_rx_buffer(&mpsse->ftdi);
-		ftdi_usb_purge_tx_buffer(&mpsse->ftdi);
-		ftdi_usb_purge_buffers(&mpsse->ftdi);
+		if(mpsse->flush_after_read)
+		{
+			/* 
+			 * Make sure the buffers are cleared after a read or subsequent reads may fail.
+			 * 
+			 * Is this needed anymore? It slows down repetitive read operations by ~8%.
+			 */
+			ftdi_usb_purge_rx_buffer(&mpsse->ftdi);
+		}
 	}
 
 	return n;
@@ -82,8 +93,8 @@ unsigned char *build_block_buffer(struct mpsse_context *mpsse, uint8_t cmd, unsi
 
 	*buf_size = 0;
 
-	/* Data block size is 1 in I2C */
-	if(mpsse->mode == _I2C)
+	/* Data block size is 1 in I2C, or when in bitmode */
+	if(mpsse->mode == _I2C || (cmd & MPSSE_BITMODE))
 	{
 		xfer_size = 1;
 	}
@@ -143,7 +154,10 @@ unsigned char *build_block_buffer(struct mpsse_context *mpsse, uint8_t cmd, unsi
 			/* Copy in the command for this block */
 			buf[i++] = cmd;
 			buf[i++] = (rsize & 0xFF);
-			buf[i++] = ((rsize >> 8) & 0xFF);
+			if(!(cmd & MPSSE_BITMODE))
+			{
+				buf[i++] = ((rsize >> 8) & 0xFF);
+			}
 
 			/* On a write, copy the data to transmit after the command */
 			if(cmd == mpsse->tx || cmd == mpsse->txrx)

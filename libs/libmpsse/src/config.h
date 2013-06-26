@@ -1,8 +1,10 @@
+/* confdefs.h */
 #define PACKAGE_NAME "libmpsse"
 #define PACKAGE_TARNAME "libmpsse"
-#define PACKAGE_VERSION "1.1"
-#define PACKAGE_STRING "libmpsse 1.1"
+#define PACKAGE_VERSION "1.3"
+#define PACKAGE_STRING "libmpsse 1.3"
 #define PACKAGE_BUGREPORT "http://libmpsse.googlecode.com"
+#define PACKAGE_URL ""
 #define STDC_HEADERS 1
 #define HAVE_SYS_TYPES_H 1
 #define HAVE_SYS_STAT_H 1
@@ -15,11 +17,6 @@
 #define HAVE_UNISTD_H 1
 #define HAVE_STDLIB_H 1
 #define HAVE_MALLOC 1
-#define HAVE_MALLOC 1
-#define HAVE_MEMSET 1
-#define HAVE_LIBFTDI 1
-#define HAVE_STDLIB_H 1
-#define HAVE_STDINT_H 1
-#define HAVE_STRING_H 1
 #define HAVE_FTDI_H 1
-#define HAVE__SYSTEM_LIBRARY_FRAMEWORKS_PYTHON_FRAMEWORK_VERSIONS_2_7_INCLUDE_PYTHON2_7_PYTHON_H 1
+#define HAVE_LIBFTDI 1
+#define HAVE__USR_INCLUDE_PYTHON2_7_PYTHON_H 1
