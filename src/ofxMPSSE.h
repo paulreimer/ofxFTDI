@@ -5,6 +5,7 @@ extern "C" {
 }
 
 #include <vector>
+#include <cstddef>
 
 class ofxMPSSE
 {
