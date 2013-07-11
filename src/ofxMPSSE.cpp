@@ -4,8 +4,17 @@
 // List of known FT2232-based devices
 struct vid_pid my_supported_devices[] = {
   { 0x0403, 0x6010, "FT2232 Future Technology Devices International, Ltd" },
-//  { 0x0403, 0x6011, "FT4232 Future Technology Devices International, Ltd" },
-//  { 0x0403, 0x6014, "FT232H Future Technology Devices International, Ltd" },
+  { 0x0403, 0x6011, "FT4232 Future Technology Devices International, Ltd" },
+  { 0x0403, 0x6014, "FT232H Future Technology Devices International, Ltd" },
+  
+  /* These devices are based on FT2232 chips, but have not been tested. */
+  { 0x0403, 0x8878, "Bus Blaster v2 (channel A)" },
+  { 0x0403, 0x8879, "Bus Blaster v2 (channel B)" },
+  { 0x0403, 0xBDC8, "Turtelizer JTAG/RS232 Adapter A" },
+  { 0x0403, 0xCFF8, "Amontec JTAGkey" },
+  { 0x0403, 0x8A98, "TIAO Multi Protocol Adapter"},
+  { 0x15BA, 0x0003, "Olimex Ltd. OpenOCD JTAG" },
+  { 0x15BA, 0x0004, "Olimex Ltd. OpenOCD JTAG TINY" },
   
   { 0, 0, NULL }
 };
@@ -39,8 +48,6 @@ ofxMPSSE::connect(enum modes mode, int freq, int endianess, interface iface, cha
   
 	for(size_t i=0; my_supported_devices[i].vid != 0; i++)
 	{
-    printf("connect() index = %i\n", index);
-
 		if((ftdi = OpenIndex(my_supported_devices[i].vid, my_supported_devices[i].pid, mode, freq, endianess, iface, description, serial, index)) != NULL)
 		{
 			if(ftdi->open)
