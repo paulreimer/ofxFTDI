@@ -1,6 +1,11 @@
 #include "ofxMPSSE.h"
 #include <iostream>
 
+extern "C" {
+#include "support.h"
+#include "ftdi.h"
+}
+
 // List of known FT2232-based devices
 struct vid_pid my_supported_devices[] = {
   { 0x0403, 0x6010, "FT2232 Future Technology Devices International, Ltd" },
@@ -23,6 +28,7 @@ struct vid_pid my_supported_devices[] = {
 ofxMPSSE::ofxMPSSE()
 : ftdi(NULL)
 , connected(false)
+, maxGPIOValue((1<<4)-1)
 {}
 
 //--------------------------------------------------------------
@@ -90,4 +96,28 @@ ofxMPSSE::send(const std::vector<uint8_t>& data)
   if (connected)
     FastWrite(ftdi, (char*)data.data(), data.size());
 //    Write(ftdi, (char*)data.data(), data.size());
+}
+
+//--------------------------------------------------------------
+void
+ofxMPSSE::setGPIO(uint8_t value)
+{
+  if (connected && (value <= maxGPIOValue))
+  {
+    ftdi->gpioh = ((ftdi->gpioh & (~maxGPIOValue)) | value);
+    set_bits_high(ftdi, ftdi->gpioh);
+  }
+}
+
+//--------------------------------------------------------------
+uint8_t
+ofxMPSSE::getGPIO()
+{
+  uint8_t value = 0;
+  if (connected)
+  {
+    value = (ftdi->gpioh & maxGPIOValue);
+  }
+
+  return value;
 }
