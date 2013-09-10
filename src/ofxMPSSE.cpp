@@ -4,6 +4,7 @@
 extern "C" {
 #include "support.h"
 #include "ftdi.h"
+#include <string.h>
 }
 
 // List of known FT2232-based devices
