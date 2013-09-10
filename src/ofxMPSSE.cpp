@@ -100,6 +100,19 @@ ofxMPSSE::send(const std::vector<uint8_t>& data)
 
 //--------------------------------------------------------------
 void
+ofxMPSSE::read(std::vector<uint8_t>& data)
+{
+  if (connected)
+  {
+    //FastRead(ftdi, (char*)&data[0], data.size());
+    char* dataPtr = Read(ftdi, data.size());
+    if (dataPtr)
+      memcpy(&data[0], dataPtr, data.size());
+  }
+}
+
+//--------------------------------------------------------------
+void
 ofxMPSSE::setGPIO(uint8_t value)
 {
   if (connected && (value <= maxGPIOValue))
