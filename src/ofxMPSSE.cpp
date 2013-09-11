@@ -29,7 +29,7 @@ struct vid_pid my_supported_devices[] = {
 ofxMPSSE::ofxMPSSE()
 : ftdi(NULL)
 , connected(false)
-//, maxGPIOAddress((1<<4)-1)
+//, maxGPIOAddressMask((1<<4)-1)
 {
   setGPIOAddresses(16);
 }
@@ -142,9 +142,9 @@ ofxMPSSE::getGPIO()
 void
 ofxMPSSE::setGPIOAddress(uint8_t addr)
 {
-  if (connected && (addr <= maxGPIOAddress))
+  if (connected && (addr <= maxGPIOAddressMask))
   {
-    setGPIO((ftdi->gpioh & (~maxGPIOAddress)) | addr);
+    setGPIO((ftdi->gpioh & (~maxGPIOAddressMask)) | addr);
   }
 }
 
@@ -152,7 +152,7 @@ ofxMPSSE::setGPIOAddress(uint8_t addr)
 uint8_t
 ofxMPSSE::getGPIOAddress()
 {
-  return (getGPIO() & maxGPIOAddress);
+  return (getGPIO() & maxGPIOAddressMask);
 }
 
 //--------------------------------------------------------------
@@ -163,5 +163,5 @@ ofxMPSSE::setGPIOAddresses(uint8_t maxAddressCount)
 	while(addressCount<maxAddressCount)
     addressCount<<=1;
 
-  maxGPIOAddress = (addressCount-1);
+  maxGPIOAddressMask = (addressCount-1);
 }

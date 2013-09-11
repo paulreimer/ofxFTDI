@@ -28,7 +28,7 @@ public:
   struct mpsse_context *ftdi;
   bool connected;
 
-  uint8_t maxGPIOAddress;
+  uint8_t maxGPIOAddressMask;
 
 protected:
   uint8_t _getGPIO();
