@@ -29,8 +29,10 @@ struct vid_pid my_supported_devices[] = {
 ofxMPSSE::ofxMPSSE()
 : ftdi(NULL)
 , connected(false)
-, maxGPIOValue((1<<4)-1)
-{}
+//, maxGPIOAddress((1<<4)-1)
+{
+  setGPIOAddresses(16);
+}
 
 //--------------------------------------------------------------
 ofxMPSSE::~ofxMPSSE()
@@ -48,7 +50,7 @@ ofxMPSSE::connect(enum modes mode, int freq, int endianess, int index, interface
 
 //--------------------------------------------------------------
 bool
-ofxMPSSE::connect(enum modes mode, int freq, int endianess, interface iface, char* description, char* serial, int index)
+ofxMPSSE::connect(enum modes mode, int freq, int endianess, interface iface, const char* description, const char* serial, int index)
 {
 //  ftdi = MPSSE(mode, freq, endianess);
 //	struct mpsse_context *mpsse = NULL;
@@ -116,9 +118,9 @@ ofxMPSSE::read(std::vector<uint8_t>& data)
 void
 ofxMPSSE::setGPIO(uint8_t value)
 {
-  if (connected && (value <= maxGPIOValue))
+  if (connected)
   {
-    ftdi->gpioh = ((ftdi->gpioh & (~maxGPIOValue)) | value);
+    ftdi->gpioh = value;
     set_bits_high(ftdi, ftdi->gpioh);
   }
 }
@@ -130,8 +132,36 @@ ofxMPSSE::getGPIO()
   uint8_t value = 0;
   if (connected)
   {
-    value = (ftdi->gpioh & maxGPIOValue);
+    value = ftdi->gpioh;
   }
 
   return value;
+}
+
+//--------------------------------------------------------------
+void
+ofxMPSSE::setGPIOAddress(uint8_t addr)
+{
+  if (connected && (addr <= maxGPIOAddress))
+  {
+    setGPIO((ftdi->gpioh & (~maxGPIOAddress)) | addr);
+  }
+}
+
+//--------------------------------------------------------------
+uint8_t
+ofxMPSSE::getGPIOAddress()
+{
+  return (getGPIO() & maxGPIOAddress);
+}
+
+//--------------------------------------------------------------
+void
+ofxMPSSE::setGPIOAddresses(uint8_t maxAddressCount)
+{
+  unsigned int addressCount=1;
+	while(addressCount<maxAddressCount)
+    addressCount<<=1;
+
+  maxGPIOAddress = (addressCount-1);
 }
