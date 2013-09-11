@@ -29,7 +29,4 @@ public:
   bool connected;
 
   uint8_t maxGPIOAddressMask;
-
-protected:
-  uint8_t _getGPIO();
 };
