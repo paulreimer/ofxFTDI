@@ -2,7 +2,7 @@
                           ftdi.c  -  description
                              -------------------
     begin                : Fri Apr 4 2003
-    copyright            : (C) 2003-2013 by Intra2net AG and the libftdi developers
+    copyright            : (C) 2003-2014 by Intra2net AG and the libftdi developers
     email                : opensource@intra2net.com
  ***************************************************************************/
 
@@ -278,7 +278,7 @@ void ftdi_set_usbdev (struct ftdi_context *ftdi, libusb_device_handle *usb)
  *
  * @return ftdi_version_info Library version information
  **/
-struct ftdi_version_info ftdi_get_library_version()
+struct ftdi_version_info ftdi_get_library_version(void)
 {
     struct ftdi_version_info ver;
 
@@ -1369,7 +1369,7 @@ int ftdi_set_line_property2(struct ftdi_context *ftdi, enum ftdi_bits_type bits,
     \retval <0: error code from usb_bulk_write()
     \retval >0: number of bytes written
 */
-int ftdi_write_data(struct ftdi_context *ftdi, unsigned char *buf, int size)
+int ftdi_write_data(struct ftdi_context *ftdi, const unsigned char *buf, int size)
 {
     int offset = 0;
     int actual_length;
@@ -1384,7 +1384,7 @@ int ftdi_write_data(struct ftdi_context *ftdi, unsigned char *buf, int size)
         if (offset+write_size > size)
             write_size = size-offset;
 
-        if (libusb_bulk_transfer(ftdi->usb_dev, ftdi->in_ep, buf+offset, write_size, &actual_length, ftdi->usb_write_timeout) < 0)
+        if (libusb_bulk_transfer(ftdi->usb_dev, ftdi->in_ep, (unsigned char *)buf+offset, write_size, &actual_length, ftdi->usb_write_timeout) < 0)
             ftdi_error_return(-1, "usb bulk write failed");
 
         offset += actual_length;
@@ -2691,8 +2691,6 @@ int ftdi_eeprom_build(struct ftdi_context *ftdi)
     i = 0;
     switch (ftdi->type)
     {
-        case TYPE_232H:
-            i += 2;
         case TYPE_2232H:
         case TYPE_4232H:
             i += 2;
@@ -2704,6 +2702,7 @@ int ftdi_eeprom_build(struct ftdi_context *ftdi)
         case TYPE_BM:
             i += 0x94;
             break;
+        case TYPE_232H:
         case TYPE_230X:
             i = 0xa0;
             break;
@@ -3016,6 +3015,12 @@ int ftdi_eeprom_build(struct ftdi_context *ftdi)
                 output[0x01] |= POWER_SAVE_DISABLE_H;
             else
                 output[0x01] &= ~POWER_SAVE_DISABLE_H;
+
+            if (eeprom->suspend_pull_downs)
+                output[0x0a] |= 0x4;
+            else
+                output[0x0a] &= ~0x4;
+
             if (eeprom->clock_polarity)
                 output[0x01] |= FT1284_CLK_IDLE_STATE;
             else

@@ -2,7 +2,7 @@
                           ftdi.h  -  description
                              -------------------
     begin                : Fri Apr 4 2003
-    copyright            : (C) 2003-2013 by Intra2net AG and the libftdi developers
+    copyright            : (C) 2003-2014 by Intra2net AG and the libftdi developers
     email                : opensource@intra2net.com
  ***************************************************************************/
 
@@ -19,6 +19,18 @@
 
 #include <stdint.h>
 #include <sys/time.h>
+
+/* 'interface' might be defined as a macro on Windows, so we need to
+ * undefine it so as not to break the current libftdi API, because
+ * struct ftdi_context has an 'interface' member
+ * As this can be problematic if you include windows.h after ftdi.h
+ * in your sources, we force windows.h to be included first. */
+#if defined(_WIN32) || defined(__CYGWIN__) || defined(_WIN32_WCE)
+#include <windows.h>
+#if defined(interface)
+#undef interface
+#endif
+#endif
 
 /** FTDI chip type */
 enum ftdi_chip_type
@@ -452,7 +464,7 @@ extern "C"
     void ftdi_free(struct ftdi_context *ftdi);
     void ftdi_set_usbdev (struct ftdi_context *ftdi, struct libusb_device_handle *usbdev);
 
-    struct ftdi_version_info ftdi_get_library_version();
+    struct ftdi_version_info ftdi_get_library_version(void);
 
     int ftdi_usb_find_all(struct ftdi_context *ftdi, struct ftdi_device_list **devlist,
                           int vendor, int product);
@@ -490,7 +502,7 @@ extern "C"
     int ftdi_read_data_set_chunksize(struct ftdi_context *ftdi, unsigned int chunksize);
     int ftdi_read_data_get_chunksize(struct ftdi_context *ftdi, unsigned int *chunksize);
 
-    int ftdi_write_data(struct ftdi_context *ftdi, unsigned char *buf, int size);
+    int ftdi_write_data(struct ftdi_context *ftdi, const unsigned char *buf, int size);
     int ftdi_write_data_set_chunksize(struct ftdi_context *ftdi, unsigned int chunksize);
     int ftdi_write_data_get_chunksize(struct ftdi_context *ftdi, unsigned int *chunksize);
 
