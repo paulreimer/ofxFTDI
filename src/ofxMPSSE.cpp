@@ -5,6 +5,8 @@ extern "C" {
 #include "support.h"
 #include "ftdi.h"
 #include <string.h>
+#include <errno.h>
+#include <sys/sysctl.h>
 }
 
 // List of known FT2232-based devices
@@ -117,8 +119,17 @@ ofxMPSSE::connect(enum modes _mode, int _freq, int _endianess, interface _iface,
     << "; "
     << std::endl
     << "don't forget to disable (or uninstall) the FTDI official/VCP drivers:"
-    << std::endl
-    << "sudo kextunload /System/Library/Extensions/FTDIUSBSerialDriver.kext";
+    << std::endl;
+
+    char str[256];
+    size_t size = sizeof(str);
+    int ret = sysctlbyname("kern.osrelease", str, &size, NULL, 0);
+
+    if ((ret == 0 && size >= 2) && (str[0] == '1' && str[1] >= '3')) // OS X 10.9 (kernel version 13.x.x)
+      errorStream << "sudo kextunload /System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBFTDI.kext;" << std::endl;
+
+    errorStream << "sudo kextunload /System/Library/Extensions/FTDIUSBSerialDriver.kext";
+//#else
 #endif
 
     std::cout << errorStream.str() << std::endl;
