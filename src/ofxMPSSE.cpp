@@ -166,6 +166,20 @@ ofxMPSSE::send(const std::vector<uint8_t>& data)
 
 //--------------------------------------------------------------
 bool
+ofxMPSSE::transfer(const std::vector<uint8_t>& dataOut,
+                   std::vector<uint8_t>& dataIn)
+{
+  if (connected)
+  {
+    connected = (FastTransfer(ftdi, (char*)dataOut.data(), (char*)dataIn.data(), dataOut.size()) == MPSSE_OK);
+    //    connected = (Transfer(ftdi, (char*)dataOut.data(), (char*)dataIn.data(), dataOut.size()) == MPSSE_OK);
+  }
+
+  return connected;
+}
+
+//--------------------------------------------------------------
+bool
 ofxMPSSE::read(std::vector<uint8_t>& data)
 {
   if (connected)

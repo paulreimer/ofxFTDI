@@ -38,6 +38,8 @@ public:
 
   bool send(const std::vector<uint8_t>& data);
   bool read(std::vector<uint8_t>& data);
+  bool transfer(const std::vector<uint8_t>& dataOut,
+                std::vector<uint8_t>& dataIn);
 
   bool setGPIO(uint8_t value);
   uint8_t getGPIO();
