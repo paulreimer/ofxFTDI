@@ -129,6 +129,8 @@ struct mpsse_context *OpenIndex(int vid, int pid, enum modes mode, int freq, int
 		/* ftdilib initialization */
 		if(ftdi_init(&mpsse->ftdi) == 0)
 		{
+			mpsse->ftdi_initialized = 1;
+
 			/* Set the FTDI interface  */
 			ftdi_set_interface(&mpsse->ftdi, interface);
 
@@ -212,8 +214,12 @@ void Close(struct mpsse_context *mpsse)
 	{
 		if(mpsse->open)
 		{
-			ftdi_set_bitmode(&mpsse->ftdi, 0, BITMODE_RESET);
 			ftdi_usb_close(&mpsse->ftdi);
+			ftdi_set_bitmode(&mpsse->ftdi, 0, BITMODE_RESET);
+		}
+
+		if(mpsse->ftdi_initialized)
+		{
 			ftdi_deinit(&mpsse->ftdi);
 		}
 
