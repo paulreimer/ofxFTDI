@@ -30,6 +30,13 @@ ofxMPSSE::ofxMPSSE()
 : ftdi(NULL)
 , connected(false)
 //, maxGPIOAddressMask((1<<4)-1)
+, mode(SPI0)
+, freq(ONE_MHZ)
+, endianess(MSB)
+, iface(IFACE_A)
+, description(NULL)
+, serial(NULL)
+, index(0)
 {
   setGPIOAddresses(16);
 }
@@ -43,18 +50,23 @@ ofxMPSSE::~ofxMPSSE()
 
 //--------------------------------------------------------------
 bool
-ofxMPSSE::connect(enum modes mode, int freq, int endianess, int index, interface iface)
+ofxMPSSE::connect(enum modes _mode, int _freq, int _endianess, int _index, interface _iface)
 {
-  return connect(mode, freq, endianess, iface, NULL, NULL, index);
+  return connect(_mode, _freq, _endianess, _iface, NULL, NULL, _index);
 }
 
 //--------------------------------------------------------------
 bool
-ofxMPSSE::connect(enum modes mode, int freq, int endianess, interface iface, const char* description, const char* serial, int index)
+ofxMPSSE::connect(enum modes _mode, int _freq, int _endianess, interface _iface, const char* _description, const char* _serial, int _index)
 {
-//  ftdi = MPSSE(mode, freq, endianess);
-//	struct mpsse_context *mpsse = NULL;
-  
+  mode        = _mode;
+  freq        = _freq;
+  endianess   = _endianess;
+  index       = _index;
+  iface       = _iface;
+  description = _description;
+  serial      = _serial;
+
 	for(size_t i=0; my_supported_devices[i].vid != 0; i++)
 	{
 		if((ftdi = OpenIndex(my_supported_devices[i].vid, my_supported_devices[i].pid, mode, freq, endianess, iface, description, serial, index)) != NULL)
@@ -107,19 +119,32 @@ ofxMPSSE::connect(enum modes mode, int freq, int endianess, interface iface, con
 #endif
     std::cout << std::endl;
   }
+
+  return connected;
 }
 
 //--------------------------------------------------------------
-void
+bool
+ofxMPSSE::reconnect()
+{
+  return connect(mode, freq, endianess, iface, description, serial, index);
+}
+
+//--------------------------------------------------------------
+bool
 ofxMPSSE::send(const std::vector<uint8_t>& data)
 {
   if (connected)
-    FastWrite(ftdi, (char*)data.data(), data.size());
-//    Write(ftdi, (char*)data.data(), data.size());
+  {
+    connected = (FastWrite(ftdi, (char*)data.data(), data.size()) == MPSSE_OK);
+//    connected = (Write(ftdi, (char*)data.data(), data.size()) == MPSSE_OK);
+  }
+
+  return connected;
 }
 
 //--------------------------------------------------------------
-void
+bool
 ofxMPSSE::read(std::vector<uint8_t>& data)
 {
   if (connected)
@@ -128,18 +153,24 @@ ofxMPSSE::read(std::vector<uint8_t>& data)
     char* dataPtr = Read(ftdi, data.size());
     if (dataPtr)
       memcpy(&data[0], dataPtr, data.size());
+    else
+      connected = false;
   }
+
+  return connected;
 }
 
 //--------------------------------------------------------------
-void
+bool
 ofxMPSSE::setGPIO(uint8_t value)
 {
   if (connected)
   {
     ftdi->gpioh = value;
-    set_bits_high(ftdi, ftdi->gpioh);
+    connected = (set_bits_high(ftdi, ftdi->gpioh) == MPSSE_OK);
   }
+
+  return connected;
 }
 
 //--------------------------------------------------------------
@@ -156,13 +187,15 @@ ofxMPSSE::getGPIO()
 }
 
 //--------------------------------------------------------------
-void
+bool
 ofxMPSSE::setGPIOAddress(uint8_t addr)
 {
   if (connected && (addr <= maxGPIOAddressMask))
   {
-    setGPIO((ftdi->gpioh & (~maxGPIOAddressMask)) | addr);
+    connected = setGPIO((ftdi->gpioh & (~maxGPIOAddressMask)) | addr);
   }
+
+  return connected;
 }
 
 //--------------------------------------------------------------
@@ -182,3 +215,87 @@ ofxMPSSE::setGPIOAddresses(uint8_t maxAddressCount)
 
   maxGPIOAddressMask = (addressCount-1);
 }
+
+//--------------------------------------------------------------
+bool
+ofxMPSSE::isConnected()
+{
+#ifdef ASYNC_SUPPORT
+  bool retval = false;
+//  ofMutex::ScopedLock lock(asyncMutex);
+  if (asyncMutex.tryLock())
+  {
+    retval = connected;
+    asyncMutex.unlock();
+  }
+  return retval;
+#else
+  return connected;
+#endif
+}
+
+#ifdef ASYNC_SUPPORT
+//--------------------------------------------------------------
+void
+ofxMPSSE::asyncConnect(enum modes _mode, int _freq, int _endianess, int _index, interface _iface, size_t _asyncConnectInterval)
+{
+  asyncConnect(_mode, _freq, _endianess, _iface, NULL, NULL, _index, _asyncConnectInterval);
+}
+
+//--------------------------------------------------------------
+void
+ofxMPSSE::asyncConnect(enum modes _mode, int _freq, int _endianess, interface _iface, const char* _description, const char* _serial, int _index, size_t _asyncConnectInterval)
+{
+//  ofMutex::ScopedLock lock(asyncMutex);
+  if (asyncMutex.tryLock())
+  {
+    mode        = _mode;
+    freq        = _freq;
+    endianess   = _endianess;
+    index       = _index;
+    iface       = _iface;
+    description = _description;
+    serial      = _serial;
+
+    asyncConnectInterval = _asyncConnectInterval;
+
+    if (!isThreadRunning())
+    {
+      startThread();
+    }
+
+    asyncMutex.unlock();
+  }
+}
+
+//--------------------------------------------------------------
+void
+ofxMPSSE::asyncReconnect(size_t _asyncConnectInterval)
+{
+//  ofMutex::ScopedLock lock(asyncMutex);
+  if (asyncMutex.tryLock())
+  {
+    asyncConnectInterval = _asyncConnectInterval;
+    if (!isThreadRunning())
+    {
+      startThread();
+    }
+    asyncMutex.unlock();
+  }
+}
+
+//--------------------------------------------------------------
+void
+ofxMPSSE::threadedFunction()
+{
+  ofMutex::ScopedLock lock(asyncMutex);
+  while (!connected)
+  {
+    if (!connect(mode, freq, endianess, iface, description, serial, index))
+    {
+//      sleep(1000);
+      usleep(asyncConnectInterval);
+    }
+  }
+}
+#endif
