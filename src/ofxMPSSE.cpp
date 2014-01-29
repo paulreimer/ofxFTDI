@@ -87,37 +87,41 @@ ofxMPSSE::connect(enum modes _mode, int _freq, int _endianess, interface _iface,
 
   if (ftdi != NULL && ftdi->open)
   {
-    std::cout
+    std::stringstream debugStream;
+    debugStream
     << "FTDI device '" << GetDescription(ftdi) << "'";
 
     if (serial)
-      std::cout
+      debugStream
       << " (serial: '" << serial << "')";
 
-    std::cout
-    << " initialized at " << GetClock(ftdi) << "Hz"
-    << std::endl;
+    debugStream
+    << " initialized at " << GetClock(ftdi) << "Hz";
+
+    std::cout << debugStream.str() << std::endl;
 
     connected = true;
   }
   else {
-    std::cout
+    std::stringstream errorStream;
+    errorStream
     << "Unable to connect to FTDI device";
 
     if (serial)
-      std::cout
+      errorStream
       << " (serial: '" << serial << "'), ";
 
-    std::cout << "(" << ErrorString(ftdi) << ")";
+    errorStream << "(" << ErrorString(ftdi) << ")";
 #ifdef __APPLE__
-    std::cout
+    errorStream
     << "; "
     << std::endl
     << "don't forget to disable (or uninstall) the FTDI official/VCP drivers:"
     << std::endl
     << "sudo kextunload /System/Library/Extensions/FTDIUSBSerialDriver.kext";
 #endif
-    std::cout << std::endl;
+
+    std::cout << errorStream.str() << std::endl;
   }
 
   return connected;
