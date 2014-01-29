@@ -59,7 +59,7 @@ ofxMPSSE::connect(enum modes _mode, int _freq, int _endianess, int _index, inter
 
 //--------------------------------------------------------------
 bool
-ofxMPSSE::connect(enum modes _mode, int _freq, int _endianess, interface _iface, const char* _description, const char* _serial, int _index)
+ofxMPSSE::connect(enum modes _mode, int _freq, int _endianess, interface _iface, const char* _description, const char* _serial, int _index, bool verbose)
 {
   mode        = _mode;
   freq        = _freq;
@@ -89,50 +89,56 @@ ofxMPSSE::connect(enum modes _mode, int _freq, int _endianess, interface _iface,
 
   if (ftdi != NULL && ftdi->open)
   {
-    std::stringstream debugStream;
-    debugStream
-    << "FTDI device '" << GetDescription(ftdi) << "'";
-
-    if (serial)
+//    if (verbose)
+    {
+      std::stringstream debugStream;
       debugStream
-      << " (serial: '" << serial << "')";
+      << "FTDI device '" << GetDescription(ftdi) << "'";
 
-    debugStream
-    << " initialized at " << GetClock(ftdi) << "Hz";
+      if (serial)
+        debugStream
+        << " (serial: '" << serial << "')";
 
-    std::cout << debugStream.str() << std::endl;
+      debugStream
+      << " initialized at " << GetClock(ftdi) << "Hz";
+
+      std::cout << debugStream.str() << std::endl;
+    }
 
     connected = true;
   }
   else {
-    std::stringstream errorStream;
-    errorStream
-    << "Unable to connect to FTDI device";
-
-    if (serial)
+    if (verbose)
+    {
+      std::stringstream errorStream;
       errorStream
-      << " (serial: '" << serial << "'), ";
+      << "Unable to connect to FTDI device";
 
-    errorStream << "(" << ErrorString(ftdi) << ")";
+      if (serial)
+        errorStream
+        << " (serial: '" << serial << "'), ";
+
+      errorStream << "(" << ErrorString(ftdi) << ")";
 #ifdef __APPLE__
-    errorStream
-    << "; "
-    << std::endl
-    << "don't forget to disable (or uninstall) the FTDI official/VCP drivers:"
-    << std::endl;
+      errorStream
+      << "; "
+      << std::endl
+      << "don't forget to disable (or uninstall) the FTDI official/VCP drivers:"
+      << std::endl;
 
-    char str[256];
-    size_t size = sizeof(str);
-    int ret = sysctlbyname("kern.osrelease", str, &size, NULL, 0);
+      char str[256];
+      size_t size = sizeof(str);
+      int ret = sysctlbyname("kern.osrelease", str, &size, NULL, 0);
 
-    if ((ret == 0 && size >= 2) && (str[0] == '1' && str[1] >= '3')) // OS X 10.9 (kernel version 13.x.x)
-      errorStream << "sudo kextunload /System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBFTDI.kext;" << std::endl;
+      if ((ret == 0 && size >= 2) && (str[0] == '1' && str[1] >= '3')) // OS X 10.9 (kernel version 13.x.x)
+        errorStream << "sudo kextunload /System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBFTDI.kext;" << std::endl;
 
-    errorStream << "sudo kextunload /System/Library/Extensions/FTDIUSBSerialDriver.kext";
+      errorStream << "sudo kextunload /System/Library/Extensions/FTDIUSBSerialDriver.kext";
 //#else
 #endif
 
-    std::cout << errorStream.str() << std::endl;
+      std::cout << errorStream.str() << std::endl;
+    }
   }
 
   return connected;
@@ -304,9 +310,10 @@ void
 ofxMPSSE::threadedFunction()
 {
   ofMutex::ScopedLock lock(asyncMutex);
+  bool verbose = false;
   while (!connected)
   {
-    if (!connect(mode, freq, endianess, iface, description, serial, index))
+    if (!connect(mode, freq, endianess, iface, description, serial, index, verbose))
     {
 //      sleep(1000);
       usleep(asyncConnectInterval);

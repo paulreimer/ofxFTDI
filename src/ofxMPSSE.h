@@ -21,7 +21,7 @@ public:
   ~ofxMPSSE();
   
   bool connect(enum modes _mode, int _freq, int _endianess, int _index, interface _iface=IFACE_A);
-  bool connect(enum modes _mode=SPI0, int _freq=ONE_MHZ, int _endianess=MSB, interface _iface=IFACE_A, const char* _description=NULL, const char* _serial=NULL, int _index=0);
+  bool connect(enum modes _mode=SPI0, int _freq=ONE_MHZ, int _endianess=MSB, interface _iface=IFACE_A, const char* _description=NULL, const char* _serial=NULL, int _index=0, bool verbose=true);
 
   bool reconnect();
 
