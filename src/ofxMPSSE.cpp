@@ -263,10 +263,10 @@ ofxMPSSE::isConnected()
 {
 #ifdef ASYNC_SUPPORT
   bool retval = false;
-  if (asyncMutex.tryLock())
+//  if (asyncMutex.tryLock())
   {
     retval = connected;
-    asyncMutex.unlock();
+//    asyncMutex.unlock();
   }
   return retval;
 #else
@@ -286,8 +286,7 @@ ofxMPSSE::asyncConnect(enum modes _mode, int _freq, int _endianess, int _index, 
 void
 ofxMPSSE::asyncConnect(enum modes _mode, int _freq, int _endianess, interface _iface, const char* _description, const char* _serial, int _index, size_t _asyncConnectInterval)
 {
-//  ofMutex::ScopedLock lock(asyncMutex);
-  if (asyncMutex.tryLock())
+//  if (asyncMutex.tryLock())
   {
     mode        = _mode;
     freq        = _freq;
@@ -301,7 +300,7 @@ ofxMPSSE::asyncConnect(enum modes _mode, int _freq, int _endianess, interface _i
 
     asyncConnectionThread.asyncConnect(*this);
 
-    asyncMutex.unlock();
+//    asyncMutex.unlock();
   }
 }
 
@@ -309,13 +308,13 @@ ofxMPSSE::asyncConnect(enum modes _mode, int _freq, int _endianess, interface _i
 void
 ofxMPSSE::asyncReconnect(size_t _asyncConnectInterval)
 {
-  if (asyncMutex.tryLock())
+//  if (asyncMutex.tryLock())
   {
     asyncConnectInterval = _asyncConnectInterval;
 
     asyncConnectionThread.asyncConnect(*this);
 
-    asyncMutex.unlock();
+//    asyncMutex.unlock();
   }
 }
 
@@ -353,7 +352,7 @@ AsyncConnectionThread::run()
       ofxMPSSE& device(*(deviceIter->first));
       size_t& lastConnectionAttemptTime(deviceIter->second);
 
-      device.asyncMutex.lock();
+//      device.asyncMutex.lock();
 
       size_t now = Poco::Timestamp().epochMicroseconds();
       if (device.reconnect(lastConnectionAttemptTime? verbose : true))
@@ -381,7 +380,7 @@ AsyncConnectionThread::run()
         deviceIter++;
       }
 
-      device.asyncMutex.unlock();
+//      device.asyncMutex.unlock();
     }
 
     if ((!disconnectedDevices.empty()) && (minRemainingWaitTime>0))

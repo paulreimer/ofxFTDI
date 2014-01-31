@@ -24,8 +24,10 @@ class AsyncConnectionThread
 : public Poco::Runnable
 {
   friend class ofxMPSSE;
-public:
+protected:
   void asyncConnect(ofxMPSSE& device);
+
+  Poco::FastMutex asyncMutex;
 
 private:
   void run();
@@ -54,7 +56,6 @@ public:
   void asyncReconnect(size_t _asyncConnectInterval=1e6);
 
   size_t asyncConnectInterval;
-  Poco::FastMutex asyncMutex;
 #endif
 
   bool send(const std::vector<uint8_t>& data);
