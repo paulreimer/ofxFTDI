@@ -3,18 +3,40 @@
 #define ASYNC_SUPPORT
 
 #ifdef ASYNC_SUPPORT
-#include "ofThread.h"
+#include <Poco/Mutex.h>
+#include <Poco/Runnable.h>
+#include <Poco/SharedPtr.h>
+#include <Poco/Thread.h>
 #endif
+
+#include <vector>
+#include <map>
+#include <cstddef>
 
 extern "C" {
 #include "mpsse.h"
 }
 
-#include <vector>
-#include <cstddef>
+#ifdef ASYNC_SUPPORT
+class ofxMPSSE;
+
+class AsyncConnectionThread
+: public Poco::Runnable
+{
+  friend class ofxMPSSE;
+public:
+  void asyncConnect(ofxMPSSE& device);
+
+private:
+  void run();
+
+  Poco::SharedPtr<Poco::Thread> thread;
+
+  std::map<ofxMPSSE*, size_t> disconnectedDevices;
+};
+#endif
 
 class ofxMPSSE
-: public ofThread
 {
 public:
   ofxMPSSE();
@@ -23,7 +45,7 @@ public:
   bool connect(enum modes _mode, int _freq, int _endianess, int _index, interface _iface=IFACE_A);
   bool connect(enum modes _mode=SPI0, int _freq=ONE_MHZ, int _endianess=MSB, interface _iface=IFACE_A, const char* _description=NULL, const char* _serial=NULL, int _index=0, bool verbose=true);
 
-  bool reconnect();
+  bool reconnect(bool verbose=true);
 
 #ifdef ASYNC_SUPPORT
   void asyncConnect(enum modes _mode, int _freq, int _endianess, int _index, interface _iface=IFACE_A, size_t _asyncConnectInterval=1e6);
@@ -31,9 +53,8 @@ public:
 
   void asyncReconnect(size_t _asyncConnectInterval=1e6);
 
-  void threadedFunction();
-  ofMutex asyncMutex;
   size_t asyncConnectInterval;
+  Poco::FastMutex asyncMutex;
 #endif
 
   bool send(const std::vector<uint8_t>& data);
@@ -56,6 +77,10 @@ public:
   uint8_t maxGPIOAddressMask;
 
 private:
+#ifdef ASYNC_SUPPORT
+  static AsyncConnectionThread asyncConnectionThread;
+#endif
+
   enum modes mode;
   int freq;
   int endianess;

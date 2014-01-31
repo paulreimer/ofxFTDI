@@ -1,5 +1,9 @@
 #include "ofxMPSSE.h"
+
+#include <Poco/Timestamp.h>
+
 #include <iostream>
+#include <sstream>
 
 extern "C" {
 #include "support.h"
@@ -26,6 +30,8 @@ struct vid_pid my_supported_devices[] = {
   
   { 0, 0, NULL }
 };
+
+AsyncConnectionThread ofxMPSSE::asyncConnectionThread;
 
 //--------------------------------------------------------------
 ofxMPSSE::ofxMPSSE()
@@ -146,9 +152,9 @@ ofxMPSSE::connect(enum modes _mode, int _freq, int _endianess, interface _iface,
 
 //--------------------------------------------------------------
 bool
-ofxMPSSE::reconnect()
+ofxMPSSE::reconnect(bool verbose)
 {
-  return connect(mode, freq, endianess, iface, description, serial, index);
+  return connect(mode, freq, endianess, iface, description, serial, index, verbose);
 }
 
 //--------------------------------------------------------------
@@ -257,7 +263,6 @@ ofxMPSSE::isConnected()
 {
 #ifdef ASYNC_SUPPORT
   bool retval = false;
-//  ofMutex::ScopedLock lock(asyncMutex);
   if (asyncMutex.tryLock())
   {
     retval = connected;
@@ -294,10 +299,7 @@ ofxMPSSE::asyncConnect(enum modes _mode, int _freq, int _endianess, interface _i
 
     asyncConnectInterval = _asyncConnectInterval;
 
-    if (!isThreadRunning())
-    {
-      startThread();
-    }
+    asyncConnectionThread.asyncConnect(*this);
 
     asyncMutex.unlock();
   }
@@ -307,30 +309,84 @@ ofxMPSSE::asyncConnect(enum modes _mode, int _freq, int _endianess, interface _i
 void
 ofxMPSSE::asyncReconnect(size_t _asyncConnectInterval)
 {
-//  ofMutex::ScopedLock lock(asyncMutex);
   if (asyncMutex.tryLock())
   {
     asyncConnectInterval = _asyncConnectInterval;
-    if (!isThreadRunning())
-    {
-      startThread();
-    }
+
+    asyncConnectionThread.asyncConnect(*this);
+
     asyncMutex.unlock();
   }
 }
 
 //--------------------------------------------------------------
 void
-ofxMPSSE::threadedFunction()
+AsyncConnectionThread::asyncConnect(ofxMPSSE& device)
 {
-  ofMutex::ScopedLock lock(asyncMutex);
-  bool verbose = false;
-  while (!connected)
+  if (disconnectedDevices.find(&device) == disconnectedDevices.end())
   {
-    if (!connect(mode, freq, endianess, iface, description, serial, index, verbose))
+//    size_t now = Poco::Timestamp().epochMicroseconds();
+
+    disconnectedDevices.insert(std::make_pair(&device, 0));
+  }
+
+  if (thread.isNull())
+    thread = new Poco::Thread;
+
+  if (!thread->isRunning())
+    thread->start(*this);
+}
+
+//--------------------------------------------------------------
+void
+AsyncConnectionThread::run()
+{
+  bool verbose = false;
+
+  while (!disconnectedDevices.empty())
+  {
+    size_t minRemainingWaitTime = 5e6; // wait by default
+
+    std::map<ofxMPSSE*, size_t>::iterator deviceIter=disconnectedDevices.begin();
+    while (deviceIter!=disconnectedDevices.end())
     {
-//      sleep(1000);
-      usleep(asyncConnectInterval);
+      ofxMPSSE& device(*(deviceIter->first));
+      size_t& lastConnectionAttemptTime(deviceIter->second);
+
+      device.asyncMutex.lock();
+
+      size_t now = Poco::Timestamp().epochMicroseconds();
+      if (device.reconnect(lastConnectionAttemptTime? verbose : true))
+      {
+        std::map<ofxMPSSE*, size_t>::iterator deviceIterPrev = deviceIter;
+        deviceIter++;
+
+        disconnectedDevices.erase(deviceIterPrev);
+      }
+      else {
+        now = Poco::Timestamp().epochMicroseconds();
+        size_t elapsedSinceLastConnectionAttempt = (now - lastConnectionAttemptTime);
+        if (elapsedSinceLastConnectionAttempt < device.asyncConnectInterval)
+        {
+          size_t remainingWaitTime = (device.asyncConnectInterval - elapsedSinceLastConnectionAttempt);
+          if (remainingWaitTime < minRemainingWaitTime)
+            minRemainingWaitTime = remainingWaitTime;
+        }
+        else {
+          minRemainingWaitTime = 0;
+        }
+
+        lastConnectionAttemptTime = now;
+
+        deviceIter++;
+      }
+
+      device.asyncMutex.unlock();
+    }
+
+    if ((!disconnectedDevices.empty()) && (minRemainingWaitTime>0))
+    {
+      Poco::Thread::sleep(minRemainingWaitTime / 1000);
     }
   }
 }
