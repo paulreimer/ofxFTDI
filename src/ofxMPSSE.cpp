@@ -8,6 +8,7 @@
 extern "C" {
 #include "support.h"
 #include "ftdi.h"
+#include "libusb.h"
 #include <string.h>
 #include <errno.h>
 #include <sys/sysctl.h>
@@ -196,6 +197,9 @@ ofxMPSSE::sendAsync(const ofxMPSSEZeroCopyBuffer& buffer, bool doBlock)
       currentAsyncTransferStatus = AsyncWrite(mpsse, (uint8_t*)buffer.internalBuffer.data(), buffer.internalBuffer.size());
     }
     else { // existing transfer pending or finished
+      if (!doBlock)
+        libusb_handle_events(currentAsyncTransferStatus->ftdi->usb_ctx);
+
       if (doBlock || (currentAsyncTransferStatus->completed))
       {
         // block if necessary and cleanup
