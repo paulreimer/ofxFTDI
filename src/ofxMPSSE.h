@@ -72,7 +72,7 @@ public:
 
   bool isConnected();
 
-  struct mpsse_context *ftdi;
+  struct mpsse_context *mpsse;
   bool connected;
 
   uint8_t maxGPIOAddressMask;

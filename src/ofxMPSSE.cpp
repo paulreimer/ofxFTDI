@@ -35,7 +35,7 @@ AsyncConnectionThread ofxMPSSE::asyncConnectionThread;
 
 //--------------------------------------------------------------
 ofxMPSSE::ofxMPSSE()
-: ftdi(NULL)
+: mpsse(NULL)
 , connected(false)
 //, maxGPIOAddressMask((1<<4)-1)
 , mode(SPI0)
@@ -53,7 +53,7 @@ ofxMPSSE::ofxMPSSE()
 ofxMPSSE::~ofxMPSSE()
 {
   if (connected)
-    Close(ftdi);
+    Close(mpsse);
 }
 
 //--------------------------------------------------------------
@@ -77,36 +77,36 @@ ofxMPSSE::connect(enum modes _mode, int _freq, int _endianess, interface _iface,
 
 	for(size_t i=0; my_supported_devices[i].vid != 0; i++)
 	{
-		if((ftdi = OpenIndex(my_supported_devices[i].vid, my_supported_devices[i].pid, mode, freq, endianess, iface, description, serial, index)) != NULL)
+		if((mpsse = OpenIndex(my_supported_devices[i].vid, my_supported_devices[i].pid, mode, freq, endianess, iface, description, serial, index)) != NULL)
 		{
-			if(ftdi->open)
+			if(mpsse->open)
 			{
-				ftdi->description = my_supported_devices[i].description;
+				mpsse->description = my_supported_devices[i].description;
 				break;
 			}
 			/* If there is another device still left to try, free the context pointer and try again */
 			else if(my_supported_devices[i+1].vid != 0)
 			{
-				Close(ftdi);
-				ftdi = NULL;
+				Close(mpsse);
+				mpsse = NULL;
 			}
 		}
 	}
 
-  if (ftdi != NULL && ftdi->open)
+  if (mpsse != NULL && mpsse->open)
   {
 //    if (verbose)
     {
       std::stringstream debugStream;
       debugStream
-      << "FTDI device '" << GetDescription(ftdi) << "'";
+      << "FTDI device '" << GetDescription(mpsse) << "'";
 
       if (serial)
         debugStream
         << " (serial: '" << serial << "')";
 
       debugStream
-      << " initialized at " << GetClock(ftdi) << "Hz";
+      << " initialized at " << GetClock(mpsse) << "Hz";
 
       std::cout << debugStream.str() << std::endl;
     }
@@ -124,7 +124,7 @@ ofxMPSSE::connect(enum modes _mode, int _freq, int _endianess, interface _iface,
         errorStream
         << " (serial: '" << serial << "'), ";
 
-      errorStream << "(" << ErrorString(ftdi) << ")";
+      errorStream << "(" << ErrorString(mpsse) << ")";
 #ifdef __APPLE__
       errorStream
       << "; "
@@ -163,8 +163,8 @@ ofxMPSSE::send(const std::vector<uint8_t>& data)
 {
   if (connected)
   {
-    connected = (FastWrite(ftdi, (char*)data.data(), data.size()) == MPSSE_OK);
-//    connected = (Write(ftdi, (char*)data.data(), data.size()) == MPSSE_OK);
+    connected = (FastWrite(mpsse, (char*)data.data(), data.size()) == MPSSE_OK);
+//    connected = (Write(mpsse, (char*)data.data(), data.size()) == MPSSE_OK);
   }
 
   return connected;
@@ -177,8 +177,8 @@ ofxMPSSE::transfer(const std::vector<uint8_t>& dataOut,
 {
   if (connected)
   {
-    connected = (FastTransfer(ftdi, (char*)dataOut.data(), (char*)dataIn.data(), dataOut.size()) == MPSSE_OK);
-    //    connected = (Transfer(ftdi, (char*)dataOut.data(), (char*)dataIn.data(), dataOut.size()) == MPSSE_OK);
+    connected = (FastTransfer(mpsse, (char*)dataOut.data(), (char*)dataIn.data(), dataOut.size()) == MPSSE_OK);
+    //    connected = (Transfer(mpsse, (char*)dataOut.data(), (char*)dataIn.data(), dataOut.size()) == MPSSE_OK);
   }
 
   return connected;
@@ -190,8 +190,8 @@ ofxMPSSE::read(std::vector<uint8_t>& data)
 {
   if (connected)
   {
-    //FastRead(ftdi, (char*)&data[0], data.size());
-    char* dataPtr = Read(ftdi, data.size());
+    //FastRead(mpsse, (char*)&data[0], data.size());
+    char* dataPtr = Read(mpsse, data.size());
     if (dataPtr)
       memcpy(&data[0], dataPtr, data.size());
     else
@@ -207,8 +207,8 @@ ofxMPSSE::setGPIO(uint8_t value)
 {
   if (connected)
   {
-    ftdi->gpioh = value;
-    connected = (set_bits_high(ftdi, ftdi->gpioh) == MPSSE_OK);
+    mpsse->gpioh = value;
+    connected = (set_bits_high(mpsse, mpsse->gpioh) == MPSSE_OK);
   }
 
   return connected;
@@ -221,7 +221,7 @@ ofxMPSSE::getGPIO()
   uint8_t value = 0;
   if (connected)
   {
-    value = ftdi->gpioh;
+    value = mpsse->gpioh;
   }
 
   return value;
@@ -233,7 +233,7 @@ ofxMPSSE::setGPIOAddress(uint8_t addr)
 {
   if (connected && (addr <= maxGPIOAddressMask))
   {
-    connected = setGPIO((ftdi->gpioh & (~maxGPIOAddressMask)) | addr);
+    connected = setGPIO((mpsse->gpioh & (~maxGPIOAddressMask)) | addr);
   }
 
   return connected;
