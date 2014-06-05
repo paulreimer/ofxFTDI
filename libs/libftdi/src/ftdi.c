@@ -413,8 +413,8 @@ int ftdi_usb_get_strings(struct ftdi_context * ftdi, struct libusb_device * dev,
     if ((ftdi==NULL) || (dev==NULL))
         return -1;
 
-    if (libusb_open(dev, &ftdi->usb_dev) < 0)
-        ftdi_error_return(-4, "libusb_open() failed");
+    if (ftdi->usb_dev == NULL && libusb_open(dev, &ftdi->usb_dev) < 0)
+            ftdi_error_return(-4, "libusb_open() failed");
 
     if (libusb_get_device_descriptor(dev, &desc) < 0)
         ftdi_error_return(-11, "libusb_get_device_descriptor() failed");
@@ -470,7 +470,7 @@ static unsigned int _ftdi_determine_max_packet_size(struct ftdi_context *ftdi, l
     // Determine maximum packet size. Init with default value.
     // New hi-speed devices from FTDI use a packet size of 512 bytes
     // but could be connected to a normal speed USB hub -> 64 bytes packet size.
-    if (ftdi->type == TYPE_2232H || ftdi->type == TYPE_4232H || ftdi->type == TYPE_232H || ftdi->type == TYPE_230X)
+    if (ftdi->type == TYPE_2232H || ftdi->type == TYPE_4232H || ftdi->type == TYPE_232H)
         packet_size = 512;
     else
         packet_size = 64;
@@ -1018,8 +1018,8 @@ static int ftdi_to_clkbits_AM(int baudrate, unsigned long *encoded_divisor)
     static const char am_adjust_up[8] = {0, 0, 0, 1, 0, 3, 2, 1};
     static const char am_adjust_dn[8] = {0, 0, 0, 1, 0, 1, 2, 3};
     int divisor, best_divisor, best_baud, best_baud_diff;
-    divisor = 24000000 / baudrate;
     int i;
+    divisor = 24000000 / baudrate;
 
     // Round down to supported fraction (AM only)
     divisor -= am_adjust_dn[divisor & 7];
@@ -1175,7 +1175,7 @@ static int ftdi_convert_baudrate(int baudrate, struct ftdi_context *ftdi,
 
 #define H_CLK 120000000
 #define C_CLK  48000000
-    if ((ftdi->type == TYPE_2232H) || (ftdi->type == TYPE_4232H) || (ftdi->type == TYPE_232H) || (ftdi->type == TYPE_230X))
+    if ((ftdi->type == TYPE_2232H) || (ftdi->type == TYPE_4232H) || (ftdi->type == TYPE_232H))
     {
         if(baudrate*10 > H_CLK /0x3fff)
         {
@@ -1200,7 +1200,7 @@ static int ftdi_convert_baudrate(int baudrate, struct ftdi_context *ftdi,
     }
     // Split into "value" and "index" values
     *value = (unsigned short)(encoded_divisor & 0xFFFF);
-    if (ftdi->type == TYPE_2232H || ftdi->type == TYPE_4232H || ftdi->type == TYPE_232H || ftdi->type == TYPE_230X)
+    if (ftdi->type == TYPE_2232H || ftdi->type == TYPE_4232H || ftdi->type == TYPE_232H)
     {
         *index = (unsigned short)(encoded_divisor >> 8);
         *index &= 0xFF00;
@@ -1393,7 +1393,7 @@ int ftdi_write_data(struct ftdi_context *ftdi, const unsigned char *buf, int siz
     return offset;
 }
 
-static void ftdi_read_data_cb(struct libusb_transfer *transfer)
+static void LIBUSB_CALL ftdi_read_data_cb(struct libusb_transfer *transfer)
 {
     struct ftdi_transfer_control *tc = (struct ftdi_transfer_control *) transfer->user_data;
     struct ftdi_context *ftdi = tc->ftdi;
@@ -1475,7 +1475,7 @@ static void ftdi_read_data_cb(struct libusb_transfer *transfer)
 }
 
 
-static void ftdi_write_data_cb(struct libusb_transfer *transfer)
+static void LIBUSB_CALL ftdi_write_data_cb(struct libusb_transfer *transfer)
 {
     struct ftdi_transfer_control *tc = (struct ftdi_transfer_control *) transfer->user_data;
     struct ftdi_context *ftdi = tc->ftdi;
@@ -3059,7 +3059,8 @@ int ftdi_eeprom_build(struct ftdi_context *ftdi)
         case TYPE_230X:
             output[0x00] = 0x80; /* Actually, leave the default value */
             output[0x0a] = 0x08; /* Enable USB Serial Number */
-            output[0x0c] = (0x01) | (0x3 << 4); /* DBUS drive 4mA, CBUS drive 16mA */
+            /*FIXME: Make DBUS & CBUS Control configurable*/
+            output[0x0c] = 0;    /* DBUS drive 4mA, CBUS drive 4 mA like factory default */
             for (j = 0; j <= 6; j++)
             {
                 output[0x1a + j] = eeprom->cbus_function[j];
@@ -3077,9 +3078,18 @@ int ftdi_eeprom_build(struct ftdi_context *ftdi)
             /* FT230X has a user section in the MTP which is not part of the checksum */
             i = 0x40;
         }
-        value = output[i*2];
-        value += output[(i*2)+1] << 8;
-
+        if ((ftdi->type == TYPE_230X) && (i >=  0x40) && (i < 0x50)) {
+            uint16_t data;
+            if (ftdi_read_eeprom_location(ftdi, i, &data)) {
+                fprintf(stderr, "Reading Factory Configuration Data failed\n");
+                i = 0x50;
+            }
+            value = data;
+        }
+        else {
+            value = output[i*2];
+            value += output[(i*2)+1] << 8;
+        }
         checksum = value^checksum;
         checksum = (checksum << 1) | (checksum >> 15);
     }
@@ -3112,6 +3122,8 @@ static unsigned char bit2type(unsigned char bits)
 }
 /**
    Decode binary EEPROM image into an ftdi_eeprom structure.
+
+   For FT-X devices use AN_201 FT-X MTP memory Configuration to decode.
 
    \param ftdi pointer to ftdi_context
    \param verbose Decode EEPROM on stdout
@@ -3421,14 +3433,14 @@ int ftdi_eeprom_decode(struct ftdi_context *ftdi, int verbose)
                     channel_mode[eeprom->channel_a_type],
                     (eeprom->channel_a_driver)?" VCP":"",
                     (eeprom->high_current_a)?" High Current IO":"");
-        if (ftdi->type >= TYPE_232H)
+        if (ftdi->type == TYPE_232H)
         {
             fprintf(stdout,"FT1284 Mode Clock is idle %s, %s first, %sFlow Control\n",
                     (eeprom->clock_polarity)?"HIGH":"LOW",
                     (eeprom->data_order)?"LSB":"MSB",
                     (eeprom->flow_control)?"":"No ");
         }
-        if ((ftdi->type >= TYPE_2232C) && (ftdi->type != TYPE_R) && (ftdi->type != TYPE_232H))
+        if ((ftdi->type == TYPE_2232H) || (ftdi->type == TYPE_4232H))
             fprintf(stdout,"Channel B has Mode %s%s%s\n",
                     channel_mode[eeprom->channel_b_type],
                     (eeprom->channel_b_driver)?" VCP":"",
@@ -3491,7 +3503,7 @@ int ftdi_eeprom_decode(struct ftdi_context *ftdi, int verbose)
                                  "I2C_TXE#", "I2C_RXF#", "VBUS_SENSE", "BB_WR#",
                                  "BBRD#", "TIME_STAMP", "AWAKE#",
                                 };
-            fprintf(stdout,"IOBUS has %d mA drive%s%s\n",
+            fprintf(stdout,"DBUS has %d mA drive%s%s\n",
                     (eeprom->group0_drive+1) *4,
                     (eeprom->group0_schmitt)?" Schmitt Input":"",
                     (eeprom->group0_slew)?" Slow Slew":"");
@@ -4217,7 +4229,7 @@ int ftdi_erase_eeprom(struct ftdi_context *ftdi)
     if (ftdi == NULL || ftdi->usb_dev == NULL)
         ftdi_error_return(-2, "USB device unavailable");
 
-    if (ftdi->type == TYPE_R)
+    if ((ftdi->type == TYPE_R) || (ftdi->type == TYPE_230X))
     {
         ftdi->eeprom->chip = 0;
         return 0;
