@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ofxMPSSEZeroCopyBuffer.h"
+
 #define ASYNC_SUPPORT
 
 #ifdef ASYNC_SUPPORT
@@ -15,6 +17,8 @@
 
 extern "C" {
 #include "mpsse.h"
+#include "zerocopy.h"
+#include "async.h"
 }
 
 #ifdef ASYNC_SUPPORT
@@ -34,7 +38,7 @@ private:
 
   Poco::SharedPtr<Poco::Thread> thread;
 
-  std::map<ofxMPSSE*, size_t> disconnectedDevices;
+  std::map<ofxMPSSE*, long long> disconnectedDevices;
 };
 #endif
 
@@ -58,7 +62,12 @@ public:
   size_t asyncConnectInterval;
 #endif
 
+  bool sendZeroCopy(const ofxMPSSEZeroCopyBuffer& buffer);
+  bool sendAsync(const ofxMPSSEZeroCopyBuffer& buffer, bool doBlock=true);
+
   bool send(const std::vector<uint8_t>& data);
+  bool send(const uint8_t* data, size_t size);
+  bool send(const uint8_t& data);
   bool read(std::vector<uint8_t>& data);
   bool transfer(const std::vector<uint8_t>& dataOut,
                 std::vector<uint8_t>& dataIn);
@@ -89,4 +98,6 @@ private:
   const char* description;
   const char* serial;
   int index;
+
+  struct ftdi_transfer_control* currentAsyncTransferStatus;
 };

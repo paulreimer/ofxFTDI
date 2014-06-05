@@ -45,6 +45,7 @@ ofxMPSSE::ofxMPSSE()
 , description(NULL)
 , serial(NULL)
 , index(0)
+, currentAsyncTransferStatus(NULL)
 {
   setGPIOAddresses(16);
 }
@@ -161,10 +162,55 @@ ofxMPSSE::reconnect(bool verbose)
 bool
 ofxMPSSE::send(const std::vector<uint8_t>& data)
 {
+  return send(data.data(), data.size());
+}
+
+//--------------------------------------------------------------
+bool
+ofxMPSSE::send(const uint8_t* data, size_t size)
+{
   if (connected)
   {
-    connected = (FastWrite(mpsse, (char*)data.data(), data.size()) == MPSSE_OK);
+    connected = (FastWrite(mpsse, (char*)data, size) == MPSSE_OK);
 //    connected = (Write(mpsse, (char*)data.data(), data.size()) == MPSSE_OK);
+  }
+
+  return connected;
+}
+
+//--------------------------------------------------------------
+bool
+ofxMPSSE::sendZeroCopy(const ofxMPSSEZeroCopyBuffer& buffer)
+{
+  return ZeroCopyWrite(mpsse, (uint8_t*)buffer.internalBuffer.data(), buffer.internalBuffer.size());
+}
+
+//--------------------------------------------------------------
+bool
+ofxMPSSE::sendAsync(const ofxMPSSEZeroCopyBuffer& buffer, bool doBlock)
+{
+  if (connected)
+  {
+    if (!currentAsyncTransferStatus) // first transfer or previous transfer error?
+    {
+      currentAsyncTransferStatus = AsyncWrite(mpsse, (uint8_t*)buffer.internalBuffer.data(), buffer.internalBuffer.size());
+    }
+    else { // existing transfer pending or finished
+      if (doBlock || (currentAsyncTransferStatus->completed))
+      {
+        // block if necessary and cleanup
+        int retval = ftdi_transfer_data_done(currentAsyncTransferStatus);
+        if (retval >= 0)
+        {
+          currentAsyncTransferStatus = AsyncWrite(mpsse, (uint8_t*)buffer.internalBuffer.data(), buffer.internalBuffer.size());
+        }
+        else {
+          std::cout << "failed async transfer or not completed, errcode=" << retval << std::endl;
+          currentAsyncTransferStatus = NULL;
+          return false;
+        }
+      }
+    }
   }
 
   return connected;
@@ -178,7 +224,7 @@ ofxMPSSE::transfer(const std::vector<uint8_t>& dataOut,
   if (connected)
   {
     connected = (FastTransfer(mpsse, (char*)dataOut.data(), (char*)dataIn.data(), dataOut.size()) == MPSSE_OK);
-    //    connected = (Transfer(mpsse, (char*)dataOut.data(), (char*)dataIn.data(), dataOut.size()) == MPSSE_OK);
+//    connected = (Transfer(mpsse, (char*)dataOut.data(), (char*)dataIn.data(), dataOut.size()) == MPSSE_OK);
   }
 
   return connected;
@@ -324,7 +370,7 @@ AsyncConnectionThread::asyncConnect(ofxMPSSE& device)
 {
   if (disconnectedDevices.find(&device) == disconnectedDevices.end())
   {
-//    size_t now = Poco::Timestamp().epochMicroseconds();
+//    long long now = Poco::Timestamp().epochMicroseconds();
 
     disconnectedDevices.insert(std::make_pair(&device, 0));
   }
@@ -344,30 +390,30 @@ AsyncConnectionThread::run()
 
   while (!disconnectedDevices.empty())
   {
-    size_t minRemainingWaitTime = 5e6; // wait by default
+    long long minRemainingWaitTime = 5e6; // wait by default
 
-    std::map<ofxMPSSE*, size_t>::iterator deviceIter=disconnectedDevices.begin();
+    std::map<ofxMPSSE*, long long>::iterator deviceIter=disconnectedDevices.begin();
     while (deviceIter!=disconnectedDevices.end())
     {
       ofxMPSSE& device(*(deviceIter->first));
-      size_t& lastConnectionAttemptTime(deviceIter->second);
+      long long& lastConnectionAttemptTime(deviceIter->second);
 
 //      device.asyncMutex.lock();
 
-      size_t now = Poco::Timestamp().epochMicroseconds();
+      long long now = Poco::Timestamp().epochMicroseconds();
       if (device.reconnect(lastConnectionAttemptTime? verbose : true))
       {
-        std::map<ofxMPSSE*, size_t>::iterator deviceIterPrev = deviceIter;
+        std::map<ofxMPSSE*, long long>::iterator deviceIterPrev = deviceIter;
         deviceIter++;
 
         disconnectedDevices.erase(deviceIterPrev);
       }
       else {
         now = Poco::Timestamp().epochMicroseconds();
-        size_t elapsedSinceLastConnectionAttempt = (now - lastConnectionAttemptTime);
+        long long elapsedSinceLastConnectionAttempt = (now - lastConnectionAttemptTime);
         if (elapsedSinceLastConnectionAttempt < device.asyncConnectInterval)
         {
-          size_t remainingWaitTime = (device.asyncConnectInterval - elapsedSinceLastConnectionAttempt);
+          long long remainingWaitTime = (device.asyncConnectInterval - elapsedSinceLastConnectionAttempt);
           if (remainingWaitTime < minRemainingWaitTime)
             minRemainingWaitTime = remainingWaitTime;
         }
@@ -385,7 +431,7 @@ AsyncConnectionThread::run()
 
     if ((!disconnectedDevices.empty()) && (minRemainingWaitTime>0))
     {
-      Poco::Thread::sleep(minRemainingWaitTime / 1000);
+      Poco::Thread::sleep((long)(minRemainingWaitTime / 1000));
     }
   }
 }
