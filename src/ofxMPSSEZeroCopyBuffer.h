@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <stdint.h>
+#include <stddef.h>
 
 class ofxMPSSEZeroCopyBuffer
 {
